@@ -218,3 +218,124 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<script>
+// =============================================================
+// ESTADO GLOBAL DO CLIENTE
+// =============================================================
+const client = {
+  ws: null,
+  myId: null,
+  myName: '',
+  roomCode: null,
+  hand: [],
+  state: null,
+  isHost: false,
+  selectedCardIndex: null
+};
+
+// =============================================================
+// CONEXÃO WEBSOCKET
+// =============================================================
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  client.ws = new WebSocket(proto + '//' + location.host);
+  client.ws.onopen = function() { if (onOpen) onOpen(); };
+  client.ws.onmessage = function(ev) {
+    try { handleMessage(JSON.parse(ev.data)); } catch(e) { console.error(e); }
+  };
+  client.ws.onclose = function() {
+    showToast('Conexão perdida. Recarregue a página.');
+  };
+}
+
+function send(msg) {
+  if (client.ws && client.ws.readyState === 1) client.ws.send(JSON.stringify(msg));
+}
+
+// =============================================================
+// AÇÕES DE LOBBY
+// =============================================================
+function createRoom() {
+  const name = document.getElementById('playerName').value.trim();
+  if (!name) return showToast('Digite seu nome');
+  client.myName = name;
+  const targetScore = parseInt(document.getElementById('targetScore').value);
+
+  connect(function() {
+    send({ type: 'CREATE_ROOM', name: name, targetScore: targetScore });
+  });
+}
+
+function joinRoom() {
+  const name = document.getElementById('playerName').value.trim();
+  const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+  if (!name) return showToast('Digite seu nome');
+  if (!code) return showToast('Digite o código da sala');
+  client.myName = name;
+
+  connect(function() {
+    send({ type: 'JOIN_ROOM', name: name, code: code });
+  });
+}
+
+function startGame() {
+  send({ type: 'START_GAME' });
+}
+
+function restartGame() {
+  send({ type: 'RESTART' });
+}
+
+// =============================================================
+// AÇÕES DE JOGO
+// =============================================================
+function playCard(index) {
+  if (client.selectedCardIndex !== null) return;
+  client.selectedCardIndex = index;
+  send({ type: 'PLAY_CARD', cardIndex: index });
+}
+
+function judgePick(playerId) {
+  send({ type: 'JUDGE_PICK', playerId: playerId });
+}
+
+function nextRound() {
+  send({ type: 'NEXT_ROUND' });
+}
+
+// =============================================================
+// HANDLE MENSAGENS DO SERVIDOR
+// =============================================================
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'ROOM_CREATED':
+      client.roomCode = msg.code;
+      client.isHost = true;
+      showScreen('waitingScreen');
+      document.getElementById('roomCodeDisplay').textContent = msg.code;
+      break;
+
+    case 'ROOM_JOINED':
+      client.roomCode = msg.code;
+      client.isHost = false;
+      showScreen('waitingScreen');
+      document.getElementById('roomCodeDisplay').textContent = msg.code;
+      break;
+
+    case 'HAND':
+      client.hand = msg.hand;
+      renderHand();
+      break;
+
+    case 'STATE':
+      client.state = msg;
+      const me = msg.players.find(function(p) { return p.name === client.myName; });
+      if (me) client.myId = me.id;
+      renderState();
+      break;
+
+    case 'ERROR':
+      showToast(msg.msg);
+      break;
+  }
+}
