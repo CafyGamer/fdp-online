@@ -536,4 +536,56 @@ function publicState(room) {
     lastWinner: room.lastWinner,
     targetScore: room.targetScore
   };
+}function broadcast(room, message) {
+  const msg = JSON.stringify(message);
+  room.players.forEach(p => {
+    if (p.connected && p.ws.readyState === 1) p.ws.send(msg);
+  });
+}
+
+function sendTo(player, message) {
+  if (player && player.connected && player.ws.readyState === 1) {
+    player.ws.send(JSON.stringify(message));
+  }
+}
+
+function broadcastState(room) {
+  broadcast(room, publicState(room));
+  room.players.forEach(p => sendTo(p, { type: 'HAND', hand: p.hand }));
+}
+
+// =============================================================
+// LÓGICA DO JOGO
+// =============================================================
+function startRound(room) {
+  room.phase = 'playing';
+  room.round++;
+  room.submissions = [];
+  room.lastWinner = null;
+
+  if (room.blackDeck.length === 0) room.blackDeck = shuffle(BLACK_CARDS);
+  room.blackCard = room.blackDeck.shift();
+
+  room.players.forEach(p => {
+    const need = 7 - p.hand.length;
+    if (need > 0) p.hand.push.apply(p.hand, drawWhite(room, need));
+  });
+}
+
+function pickWinner(room, winnerPlayerId) {
+  const winner = findPlayer(room, winnerPlayerId);
+  if (!winner) return;
+  winner.score++;
+  const sub = room.submissions.find(s => s.playerId === winnerPlayerId);
+  room.lastWinner = { playerId: winner.id, name: winner.name, card: sub ? sub.card : '' };
+  if (winner.score >= room.targetScore) {
+    room.phase = 'gameover';
+  } else {
+    room.phase = 'result';
+  }
+}
+
+function nextRound(room) {
+  room.judgeIndex = (room.judgeIndex + 1) % room.players.length;
+  startRound(room);
 }
