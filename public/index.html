@@ -400,3 +400,110 @@ function renderWaiting() {
     hint.textContent = 'Aguardando o host começar...';
   }
 }
+function renderGame() {
+  const s = client.state;
+
+  document.getElementById('roundNum').textContent = s.round;
+  document.getElementById('judgeName').textContent = s.judgeName || '-';
+
+  const sc = document.getElementById('scoresContainer');
+  sc.innerHTML = '';
+  s.players.forEach(function(p) {
+    const chip = document.createElement('div');
+    chip.className = 'score-chip';
+    if (p.id === s.judgeId) chip.classList.add('judge');
+    if (!p.connected) chip.classList.add('offline');
+    chip.innerHTML = p.name + ': <strong>' + p.score + '</strong>';
+    sc.appendChild(chip);
+  });
+
+  const bc = document.getElementById('blackCard');
+  bc.innerHTML = (s.blackCard || '').replace(/___/g, '<span class="blank">______</span>');
+
+  const statusEl = document.getElementById('statusMsg');
+  const handTitle = document.getElementById('handTitle');
+  const handEl = document.getElementById('handContainer');
+  const actions = document.getElementById('actionButtons');
+  const waitingMsg = document.getElementById('waitingMsg');
+  actions.innerHTML = '';
+  waitingMsg.style.display = 'none';
+
+  const isJudge = client.myId === s.judgeId;
+  const mySubmission = s.submissions.find(function(x) { return x.playerId === client.myId; });
+
+  if (s.phase === 'playing') {
+    if (isJudge) {
+      statusEl.textContent = '👑 Você é o juiz! Aguarde as respostas...';
+      handTitle.textContent = 'Aguarde os jogadores enviarem as cartas';
+      handEl.innerHTML = '';
+      waitingMsg.style.display = 'block';
+      waitingMsg.textContent = 'Recebidas: ' + s.submissions.length + ' de ' + (s.players.length - 1);
+    } else if (mySubmission) {
+      statusEl.textContent = '✅ Carta enviada! Aguardando os outros...';
+      handTitle.textContent = '';
+      handEl.innerHTML = '';
+      waitingMsg.style.display = 'block';
+      waitingMsg.textContent = 'Recebidas: ' + s.submissions.length + ' de ' + (s.players.length - 1);
+    } else {
+      statusEl.textContent = '🎴 Escolha uma carta:';
+      handTitle.textContent = 'Sua mão';
+      renderHand(true);
+    }
+  }
+
+  else if (s.phase === 'judging') {
+    statusEl.textContent = isJudge ? '👑 Você julga! Escolha a melhor:' : '⏳ O juiz está decidindo...';
+    handTitle.textContent = 'Cartas jogadas:';
+    handEl.innerHTML = '';
+    s.submissions.forEach(function(sub) {
+      const el = document.createElement('div');
+      el.className = 'white-card revealed';
+      el.textContent = sub.card;
+      if (isJudge) {
+        el.onclick = function() { judgePick(sub.playerId); };
+      } else {
+        el.style.cursor = 'default';
+      }
+      handEl.appendChild(el);
+    });
+  }
+
+  else if (s.phase === 'result') {
+    statusEl.textContent = '🎉 ' + s.lastWinner.name + ' ganhou a rodada!';
+    handTitle.textContent = 'Cartas jogadas:';
+    handEl.innerHTML = '';
+    s.submissions.forEach(function(sub) {
+      const el = document.createElement('div');
+      el.className = 'white-card revealed';
+      if (sub.playerId === s.lastWinner.playerId) el.classList.add('winner');
+      el.textContent = sub.card;
+      el.style.cursor = 'default';
+      handEl.appendChild(el);
+    });
+    if (client.isHost) {
+      actions.innerHTML = '<button onclick="nextRound()">Próxima Rodada ➡️</button>';
+    } else {
+      waitingMsg.style.display = 'block';
+      waitingMsg.textContent = 'Aguardando o host iniciar a próxima rodada...';
+    }
+  }
+}
+
+function renderHand(clickable) {
+  const handEl = document.getElementById('handContainer');
+  if (!client.hand || client.hand.length === 0) return;
+  handEl.innerHTML = '';
+  client.hand.forEach(function(card, idx) {
+    const el = document.createElement('div');
+    el.className = 'white-card';
+    el.textContent = card;
+    if (clickable) {
+      el.onclick = function() { playCard(idx); };
+    }
+    handEl.appendChild(el);
+  });
+}
+</script>
+
+</body>
+</html>
