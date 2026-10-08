@@ -339,3 +339,64 @@ function handleMessage(msg) {
       break;
   }
 }
+// =============================================================
+// RENDERIZAÇÃO
+// =============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+function showToast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+function renderState() {
+  const s = client.state;
+  if (!s) return;
+
+  if (s.phase === 'lobby') {
+    showScreen('waitingScreen');
+    renderWaiting();
+    return;
+  }
+
+  if (s.phase === 'gameover') {
+    showScreen('winnerScreen');
+    const sorted = s.players.slice().sort(function(a,b) { return b.score - a.score; });
+    const w = sorted[0];
+    document.getElementById('winnerText').innerHTML =
+      '<strong style="color:#e94560; font-size:1.4rem;">' + w.name + '</strong> venceu com ' + w.score + ' ponto(s)!';
+    return;
+  }
+
+  showScreen('gameScreen');
+  renderGame();
+}
+
+function renderWaiting() {
+  const s = client.state;
+  document.getElementById('roomCodeDisplay').textContent = s.code;
+  const ul = document.getElementById('waitingPlayers');
+  ul.innerHTML = '';
+  s.players.forEach(function(p) {
+    const li = document.createElement('li');
+    li.style.cssText = 'padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:6px;';
+    li.textContent = p.name + (p.connected ? '' : ' (offline)');
+    ul.appendChild(li);
+  });
+
+  const startBtn = document.getElementById('startBtn');
+  const hint = document.getElementById('waitingHint');
+  if (client.isHost) {
+    startBtn.style.display = 'block';
+    startBtn.disabled = s.players.length < 3;
+    hint.textContent = s.players.length < 3 ? ('Faltam ' + (3 - s.players.length) + ' jogador(es)') : 'Pronto para começar!';
+  } else {
+    startBtn.style.display = 'none';
+    hint.textContent = 'Aguardando o host começar...';
+  }
+}
