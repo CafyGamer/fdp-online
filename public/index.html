@@ -146,3 +146,75 @@
 </style>
 </head>
 <body>
+<h1>F.D.P.</h1>
+<p class="subtitle">Foi de Propósito?</p>
+
+<!-- ================= LOBBY ================= -->
+<div id="lobbyScreen" class="screen active">
+  <div class="box">
+    <h2>👤 Seu nome</h2>
+    <input type="text" id="playerName" placeholder="Digite seu nome" maxlength="15" autocomplete="off">
+  </div>
+
+  <div class="box">
+    <h2>🏠 Criar uma sala</h2>
+    <label for="targetScore">Pontos para vencer:</label>
+    <select id="targetScore">
+      <option value="3">3 pontos (rápido)</option>
+      <option value="5" selected>5 pontos (normal)</option>
+      <option value="7">7 pontos (longo)</option>
+      <option value="10">10 pontos (maratona)</option>
+    </select>
+    <button onclick="createRoom()">Criar Sala</button>
+  </div>
+
+  <div class="box">
+    <h2>🔗 Entrar em uma sala</h2>
+    <input type="text" id="roomCodeInput" placeholder="Código da sala (ex: A3K9Z)" maxlength="5" autocomplete="off" style="text-transform: uppercase;">
+    <button onclick="joinRoom()" class="secondary">Entrar</button>
+  </div>
+</div>
+
+<!-- ================= LOBBY ESPERA ================= -->
+<div id="waitingScreen" class="screen">
+  <div class="box">
+    <h2>⏳ Aguardando jogadores</h2>
+    <div class="info">
+      Compartilhe o código:<br><br>
+      <code id="roomCodeDisplay">-----</code>
+    </div>
+    <p style="color:#ccc; margin-bottom:14px; font-size:.9rem;">Jogadores na sala:</p>
+    <ul id="waitingPlayers" style="list-style:none; margin-bottom:14px;"></ul>
+    <button id="startBtn" onclick="startGame()">Começar Partida</button>
+    <p id="waitingHint" style="color:#aaa; font-size:.8rem; text-align:center; margin-top:8px;">Mínimo 3 jogadores</p>
+  </div>
+</div>
+
+<!-- ================= JOGO ================= -->
+<div id="gameScreen" class="screen">
+  <div class="game-header">
+    <div class="round-info">Rodada <strong id="roundNum">1</strong> • Juiz: <strong id="judgeName">-</strong></div>
+    <div class="scores" id="scoresContainer"></div>
+  </div>
+
+  <div class="black-card" id="blackCard"></div>
+  <div class="status-msg" id="statusMsg"></div>
+
+  <div class="hand-title" id="handTitle"></div>
+  <div class="hand" id="handContainer"></div>
+
+  <div id="actionButtons"></div>
+  <div class="waiting" id="waitingMsg" style="display:none;"></div>
+</div>
+
+<!-- ================= FIM ================= -->
+<div id="winnerScreen" class="screen">
+  <div class="box" style="text-align:center;">
+    <h2 style="color:#f39c12; font-size:1.6rem;">🏆 Temos um Vencedor!</h2>
+    <p id="winnerText" style="font-size:1.1rem; margin:20px 0;"></p>
+    <p style="color:#aaa; font-size:.9rem; margin-bottom:20px;">Foi de propósito? Com certeza! 😈</p>
+    <button onclick="restartGame()">Jogar de Novo</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
