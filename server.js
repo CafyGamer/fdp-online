@@ -456,3 +456,84 @@ const WHITE_CARDS = [
   "Urubu na janela.",
   "Coruja na árvore do condomínio."
 ];
+// =============================================================
+// UTILITÁRIOS
+// =============================================================
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+// =============================================================
+// ESTADO DAS SALAS
+// =============================================================
+const rooms = {};
+
+function makeRoom(code, targetScore) {
+  return {
+    code: code,
+    targetScore: targetScore,
+    phase: 'lobby',
+    players: [],
+    judgeIndex: 0,
+    round: 0,
+    blackCard: null,
+    blackDeck: shuffle(BLACK_CARDS),
+    whiteDeck: shuffle(WHITE_CARDS),
+    submissions: [],
+    lastWinner: null
+  };
+}
+
+function drawWhite(room, n) {
+  const picked = [];
+  for (let i = 0; i < n; i++) {
+    if (room.whiteDeck.length === 0) room.whiteDeck = shuffle(WHITE_CARDS);
+    picked.push(room.whiteDeck.shift());
+  }
+  return picked;
+}
+
+function findPlayer(room, id) {
+  return room.players.find(p => p.id === id);
+}
+
+function findPlayerByName(room, name) {
+  return room.players.find(p => p.name.toLowerCase() === name.toLowerCase());
+}
+
+function publicState(room) {
+  return {
+    type: 'STATE',
+    code: room.code,
+    phase: room.phase,
+    round: room.round,
+    blackCard: room.blackCard,
+    judgeId: room.players[room.judgeIndex] ? room.players[room.judgeIndex].id : null,
+    judgeName: room.players[room.judgeIndex] ? room.players[room.judgeIndex].name : null,
+    players: room.players.map(p => ({
+      id: p.id,
+      name: p.name,
+      score: p.score,
+      connected: p.connected,
+      handCount: p.hand.length
+    })),
+    submissions: room.submissions.map(s => ({
+      playerId: s.playerId,
+      card: (room.phase === 'result' || room.phase === 'gameover') ? s.card : null
+    })),
+    lastWinner: room.lastWinner,
+    targetScore: room.targetScore
+  };
+}
