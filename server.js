@@ -589,3 +589,177 @@ function nextRound(room) {
   room.judgeIndex = (room.judgeIndex + 1) % room.players.length;
   startRound(room);
 }
+// =============================================================
+// SERVIDOR HTTP + WEBSOCKET
+// =============================================================
+let nextPlayerId = 1;
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/' || req.url === '/index.html') {
+    const file = path.join(__dirname, 'public', 'index.html');
+    fs.readFile(file, (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Erro ao carregar index.html');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+  res.writeHead(404);
+  res.end('Nao encontrado');
+});
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws) => {
+  ws.playerId = 'p' + (nextPlayerId++);
+  ws.roomCode = null;
+  ws.isAlive = true;
+
+  ws.on('pong', () => { ws.isAlive = true; });
+
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch (e) { return; }
+
+    const room = ws.roomCode ? rooms[ws.roomCode] : null;
+    const selfProxy = { ws: ws, connected: true };
+
+    switch (msg.type) {
+
+      case 'CREATE_ROOM': {
+        const name = (msg.name || '').trim();
+        if (!name) return sendTo(selfProxy, { type: 'ERROR', msg: 'Nome obrigatorio' });
+
+        let code;
+        do { code = generateRoomCode(); } while (rooms[code]);
+        rooms[code] = makeRoom(code, msg.targetScore || 5);
+
+        const player = { id: ws.playerId, name: name, ws: ws, score: 0, hand: [], connected: true };
+        rooms[code].players.push(player);
+        ws.roomCode = code;
+
+        sendTo(player, { type: 'ROOM_CREATED', code: code });
+        broadcastState(rooms[code]);
+        break;
+      }
+
+      case 'JOIN_ROOM': {
+        const code = (msg.code || '').toUpperCase().trim();
+        const name = (msg.name || '').trim();
+        const r = rooms[code];
+        if (!r) return sendTo(selfProxy, { type: 'ERROR', msg: 'Sala nao encontrada' });
+        if (!name) return sendTo(selfProxy, { type: 'ERROR', msg: 'Nome obrigatorio' });
+        if (r.phase !== 'lobby') return sendTo(selfProxy, { type: 'ERROR', msg: 'Partida ja comecou' });
+        if (findPlayerByName(r, name)) return sendTo(selfProxy, { type: 'ERROR', msg: 'Nome ja em uso' });
+
+        const player = { id: ws.playerId, name: name, ws: ws, score: 0, hand: [], connected: true };
+        r.players.push(player);
+        ws.roomCode = code;
+
+        sendTo(player, { type: 'ROOM_JOINED', code: code });
+        broadcastState(r);
+        break;
+      }
+
+      case 'START_GAME': {
+        if (!room) return;
+        if (room.players.length < 3) return broadcast(room, { type: 'ERROR', msg: 'Precisa de pelo menos 3 jogadores' });
+        room.players.forEach(p => { p.hand = drawWhite(room, 7); p.score = 0; });
+        room.judgeIndex = 0;
+        room.round = 0;
+        startRound(room);
+        broadcastState(room);
+        break;
+      }
+      case 'PLAY_CARD': {
+        if (!room || room.phase !== 'playing') return;
+        const player = findPlayer(room, ws.playerId);
+        if (!player) return;
+        const judge = room.players[room.judgeIndex];
+        if (player.id === judge.id) return;
+        if (room.submissions.find(s => s.playerId === player.id)) return;
+
+        const idx = msg.cardIndex;
+        if (typeof idx !== 'number' || idx < 0 || idx >= player.hand.length) return;
+        const card = player.hand.splice(idx, 1)[0];
+        room.submissions.push({ playerId: player.id, card: card });
+
+        const nonJudges = room.players.filter(p => p.id !== judge.id);
+        const allPlayed = nonJudges.every(p => room.submissions.find(s => s.playerId === p.id));
+        if (allPlayed) {
+          room.phase = 'judging';
+          room.submissions = shuffle(room.submissions);
+        }
+        broadcastState(room);
+        break;
+      }
+
+      case 'JUDGE_PICK': {
+        if (!room || room.phase !== 'judging') return;
+        const judge = room.players[room.judgeIndex];
+        if (!judge || judge.id !== ws.playerId) return;
+        const winner = room.players.find(p => p.id === msg.playerId);
+        if (!winner) return;
+        if (!room.submissions.find(s => s.playerId === winner.id)) return;
+        pickWinner(room, winner.id);
+        broadcastState(room);
+        break;
+      }
+
+      case 'NEXT_ROUND': {
+        if (!room || room.phase !== 'result') return;
+        const host = room.players[0];
+        if (!host || host.id !== ws.playerId) return;
+        nextRound(room);
+        broadcastState(room);
+        break;
+      }
+
+      case 'RESTART': {
+        if (!room) return;
+        const host = room.players[0];
+        if (!host || host.id !== ws.playerId) return;
+        room.players.forEach(p => { p.hand = drawWhite(room, 7); p.score = 0; });
+        room.judgeIndex = 0;
+        room.round = 0;
+        startRound(room);
+        broadcastState(room);
+        break;
+      }
+    }
+  });
+
+  ws.on('close', () => {
+    if (!ws.roomCode) return;
+    const room = rooms[ws.roomCode];
+    if (!room) return;
+    const player = findPlayer(room, ws.playerId);
+    if (!player) return;
+    player.connected = false;
+
+    if (room.players.every(p => !p.connected)) {
+      const codeRef = ws.roomCode;
+      setTimeout(() => {
+        if (rooms[codeRef] && rooms[codeRef].players.every(p => !p.connected)) {
+          delete rooms[codeRef];
+        }
+      }, 10 * 60 * 1000);
+    }
+    broadcastState(room);
+  });
+});
+
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (!ws.isAlive) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log('F.D.P. rodando na porta ' + PORT));
