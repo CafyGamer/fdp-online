@@ -1,1 +1,148 @@
-b
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>F.D.P. - Foi de Propósito?</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,'Segoe UI',sans-serif; -webkit-tap-highlight-color:transparent; }
+  body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh; color:#fff; padding:16px;
+    display:flex; flex-direction:column; align-items:center;
+    font-size: 16px; overflow-x: hidden;
+  }
+  h1 {
+    font-size: 2rem; margin-bottom:4px; text-align:center;
+    background: linear-gradient(90deg, #e94560, #f39c12);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; letter-spacing: 2px; font-weight: 900;
+  }
+  .subtitle { color:#aaa; margin-bottom:20px; font-style:italic; text-align:center; font-size:.9rem; }
+  .screen { display:none; width:100%; max-width:900px; }
+  .screen.active { display:block; }
+  .box {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px; padding: 22px;
+    backdrop-filter: blur(10px); margin-bottom: 16px;
+  }
+  .box h2 { margin-bottom:16px; color:#f39c12; font-size:1.2rem; }
+  .box label { display:block; margin-bottom:6px; color:#ccc; font-size:.9rem; }
+  .box input, .box select {
+    width:100%; padding:14px; border-radius:10px;
+    border:1px solid #444; background:#0f0f1e; color:#fff;
+    font-size:1rem; margin-bottom:14px;
+  }
+  button {
+    background: linear-gradient(90deg, #e94560, #c23152);
+    color:#fff; border:none; padding:16px 24px;
+    border-radius:12px; font-size:1rem; font-weight:bold;
+    cursor:pointer; transition:.15s;
+    text-transform: uppercase; letter-spacing:1px;
+    width: 100%; margin-bottom: 10px;
+  }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity:.4; }
+  button.secondary {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .game-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:14px; flex-wrap:wrap; gap:8px;
+  }
+  .round-info {
+    background: rgba(255,255,255,0.08);
+    padding:8px 14px; border-radius:10px; font-size:.85rem;
+  }
+  .round-info strong { color:#f39c12; }
+  .scores { display:flex; gap:6px; flex-wrap:wrap; }
+  .score-chip {
+    background: rgba(243,156,18,0.15);
+    border:1px solid rgba(243,156,18,0.4);
+    padding:5px 10px; border-radius:20px; font-size:.78rem;
+  }
+  .score-chip.judge {
+    background: rgba(233,69,96,0.2); border-color: #e94560;
+  }
+  .score-chip.offline { opacity: .4; text-decoration: line-through; }
+  .score-chip strong { color:#f39c12; }
+  .black-card {
+    background:#151515; border-radius:16px;
+    padding:28px 20px; min-height:150px;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center; font-size:1.15rem; font-weight:700;
+    box-shadow: 0 10px 30px rgba(0,0,0,.6);
+    border: 2px solid #333; margin-bottom:16px; line-height:1.4;
+  }
+  .blank {
+    display:inline-block; background:#fff; color:#000;
+    border-radius:4px; padding:0 6px; margin:0 3px; min-width:70px;
+  }
+  .hand-title {
+    color:#f39c12; margin-bottom:10px; font-size:.85rem;
+    text-transform:uppercase; letter-spacing:1px; text-align:center;
+  }
+  .hand {
+    display:grid; grid-template-columns: 1fr; gap:10px; margin-bottom:16px;
+  }
+  .white-card {
+    background:#f5f5f5; color:#111;
+    border-radius:12px; padding:16px 14px;
+    min-height:70px; font-size:.92rem; font-weight:600;
+    cursor:pointer; transition:.15s;
+    border:3px solid transparent;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    box-shadow: 0 4px 10px rgba(0,0,0,.3);
+  }
+  .white-card:active { transform: scale(.98); }
+  .white-card.revealed {
+    background:#fff; border-color:#2ecc71; cursor:default;
+    animation: reveal .3s ease;
+  }
+  .white-card.winner {
+    background:#d4edda; border-color:#2ecc71;
+    animation: pulse 1s ease infinite;
+  }
+  @keyframes reveal { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(46,204,113,.7); }
+    50% { box-shadow: 0 0 0 12px rgba(46,204,113,0); }
+  }
+  .status-msg {
+    text-align:center; color:#f39c12; font-size:.95rem;
+    margin-bottom:14px; min-height:22px; font-weight:600;
+  }
+  .waiting {
+    text-align:center; padding:20px; color:#aaa;
+    font-style: italic; font-size:.9rem;
+  }
+  .info {
+    background: rgba(243,156,18,0.1);
+    border: 1px solid rgba(243,156,18,0.3);
+    border-radius:12px; padding:12px; margin-bottom:14px;
+    font-size:.85rem; color:#f39c12; text-align:center;
+  }
+  .info code {
+    background: rgba(0,0,0,.4); padding:3px 8px;
+    border-radius:6px; font-size:1.1rem; letter-spacing:2px;
+    color:#fff; font-weight:bold;
+  }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: #e94560; color: #fff;
+    padding: 12px 20px; border-radius: 10px;
+    font-size: .9rem; z-index: 999; opacity: 0;
+    transition: opacity .3s; pointer-events: none;
+    max-width: 90%; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+  @media (min-width: 700px) {
+    .hand { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
